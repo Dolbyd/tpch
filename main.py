@@ -13,13 +13,5 @@ def print_hi(name):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     print_hi('PyCharm')
-    cursor, conn = tpch_util.open_connection()
-    # tpch_util.create_schema(cursor, conn)
-    # tpch_util.load_data(cursor, conn)
-    # tpch_util.run_benchmark(cursor)
-    # tpch_util.run_benchmark_save_results(cursor, conn)
-    # tpch_util.fetch_results(cursor)
-
-    tpch_util.close_connection(cursor, conn)
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

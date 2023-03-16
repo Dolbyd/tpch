@@ -2,11 +2,13 @@ import os
 import time
 import psycopg2
 from datetime import datetime
+import argparse
 
 
 def open_connection():
+    db_conn = None
     try:
-        conn = psycopg2.connect(
+        db_conn = psycopg2.connect(
             user="postgres",
             password="qaz1wsx2",
             host="localhost",
@@ -16,18 +18,18 @@ def open_connection():
     except():
         print("Database not connected")
 
-    cursor = conn.cursor()
-    return cursor, conn
+    db_cursor = db_conn.cursor()
+    return db_cursor, db_conn
 
 
-def create_schema(cursor, conn):
+def create_schema():
     cursor.execute("DROP TABLE IF EXISTS nation, region, part, supplier, partsupp, customer, orders, lineitem")
 
     cursor.execute(open("tpch-schema.sql", "r").read())
     conn.commit()
 
 
-def load_data(cursor, conn):
+def load_data():
     folder_path = "tpch_data"
 
     for file_name in os.listdir(folder_path):
@@ -40,7 +42,7 @@ def load_data(cursor, conn):
     conn.commit()
 
 
-def run_benchmark(cursor):
+def run_benchmark():
     folder_path = "queries"
     result_list = []
 
@@ -58,12 +60,12 @@ def run_benchmark(cursor):
     return result_list
 
 
-def run_benchmark_save_results(cursor, conn):
+def run_benchmark_save_results():
     cursor.execute('''CREATE TABLE IF NOT EXISTS tpch_results  
              (run_datetime TIMESTAMP, tpch_query_name TEXT, benchmark_result NUMERIC)''')
 
     table_name = "tpch_results"
-    result_list = run_benchmark(cursor)
+    result_list = run_benchmark()
     for result in result_list:
         run_datetime = result[0]
         tpch_query_name = result[1]
@@ -75,13 +77,48 @@ def run_benchmark_save_results(cursor, conn):
     conn.commit()
 
 
-def fetch_results(cursor):
+def fetch_results():
     cursor.execute("SELECT * FROM tpch_results")
     rows = cursor.fetchall()
     for row in rows:
         print(f"Run datetime: {row[0]}, TPCH query name: {row[1]}, Benchmark result: {row[2]}")
 
 
-def close_connection(cursor, conn):
+def close_connection():
     cursor.close()
     conn.close()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Runs TPCH benchmark queries')
+    parser.add_argument('--create_schema', action='store_true', help='Create database schema')
+    parser.add_argument('--load_data', action='store_true', help='Load data into tables')
+    parser.add_argument('--run-benchmark', action='store_true', help='run benchmark')
+    parser.add_argument('--run-benchmark--save-results', action='store_true', help='run benchmark and save results')
+    parser.add_argument('--fetch-results', action='store_true', help='fetch results and print')
+
+    args = parser.parse_args()
+
+    cursor, conn = open_connection()
+
+    if args.create_schema:
+        create_schema()
+        print('database schema created successfully')
+
+    if args.load_data:
+        load_data()
+        print('data loaded successfully')
+
+    if args.run_benchmark:
+        run_benchmark()
+        print("run benchmark successfully")
+
+    if args.run_benchmark__save_results:
+        run_benchmark_save_results()
+        print("run benchmark and save result successfully")
+
+    if args.fetch_results:
+        fetch_results()
+        print("fetch and print results successfully")
+
+    close_connection()
