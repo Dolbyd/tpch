@@ -3,28 +3,31 @@ import time
 import psycopg2
 from datetime import datetime
 
-try:
-    conn = psycopg2.connect(
-        user="postgres",
-        password="qaz1wsx2",
-        host="localhost",
-        database="sqream"
-    )
-    print("Database connected successfully")
-except():
-    print("Database not connected")
 
-cursor = conn.cursor()
+def open_connection():
+    try:
+        conn = psycopg2.connect(
+            user="postgres",
+            password="qaz1wsx2",
+            host="localhost",
+            database="sqream"
+        )
+        print("Database connected successfully")
+    except():
+        print("Database not connected")
+
+    cursor = conn.cursor()
+    return cursor, conn
 
 
-def create_schema():
+def create_schema(cursor, conn):
     cursor.execute("DROP TABLE IF EXISTS nation, region, part, supplier, partsupp, customer, orders, lineitem")
 
     cursor.execute(open("tpch-schema.sql", "r").read())
     conn.commit()
 
 
-def load_data():
+def load_data(cursor, conn):
     folder_path = "tpch_data"
 
     for file_name in os.listdir(folder_path):
@@ -37,7 +40,7 @@ def load_data():
     conn.commit()
 
 
-def run_benchmark():
+def run_benchmark(cursor):
     folder_path = "queries"
     result_list = []
 
@@ -55,12 +58,12 @@ def run_benchmark():
     return result_list
 
 
-def run_benchmark_save_results():
+def run_benchmark_save_results(cursor, conn):
     cursor.execute('''CREATE TABLE IF NOT EXISTS tpch_results  
              (run_datetime TIMESTAMP, tpch_query_name TEXT, benchmark_result NUMERIC)''')
 
     table_name = "tpch_results"
-    result_list = run_benchmark()
+    result_list = run_benchmark(cursor)
     for result in result_list:
         run_datetime = result[0]
         tpch_query_name = result[1]
@@ -72,18 +75,13 @@ def run_benchmark_save_results():
     conn.commit()
 
 
-def fetch_results():
+def fetch_results(cursor):
     cursor.execute("SELECT * FROM tpch_results")
     rows = cursor.fetchall()
     for row in rows:
         print(f"Run datetime: {row[0]}, TPCH query name: {row[1]}, Benchmark result: {row[2]}")
 
 
-create_schema()
-load_data()
-# run_benchmark()
-run_benchmark_save_results()
-fetch_results()
-
-cursor.close()
-conn.close()
+def close_connection(cursor, conn):
+    cursor.close()
+    conn.close()
