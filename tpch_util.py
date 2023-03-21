@@ -1,18 +1,23 @@
 import os
 import time
 import psycopg2
-from datetime import datetime
 import argparse
+import configparser
+
+folder_tpch_data_path = "tpch_data"
+folder_queries_path = "queries"
 
 
 def open_connection():
     db_conn = None
+    config = configparser.ConfigParser()
+    config.read('config.ini')
     try:
         db_conn = psycopg2.connect(
-            user="postgres",
-            password="qaz1wsx2",
-            host="localhost",
-            database="sqream"
+            host=config['postgres']['host'],
+            database=config['postgres']['database'],
+            user=config['postgres']['user'],
+            password=config['postgres']['password']
         )
         print("Database connected successfully")
     except():
@@ -23,14 +28,17 @@ def open_connection():
 
 
 def create_schema():
-    cursor.execute("DROP TABLE IF EXISTS nation, region, part, supplier, partsupp, customer, orders, lineitem")
+    folder_path = folder_tpch_data_path
+    for file_name in os.listdir(folder_path):
+        table_name = file_name[:-4]
+        cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
 
     cursor.execute(open("tpch-schema.sql", "r").read())
     conn.commit()
 
 
 def load_data():
-    folder_path = "tpch_data"
+    folder_path = folder_tpch_data_path
 
     for file_name in os.listdir(folder_path):
         table_name = file_name[:-4]
@@ -43,7 +51,7 @@ def load_data():
 
 
 def run_benchmark():
-    folder_path = "queries"
+    folder_path = folder_queries_path
     result_list = []
 
     for file_name in os.listdir(folder_path):
@@ -52,8 +60,8 @@ def run_benchmark():
         cursor.execute(open(file_path, "r").read())
         end_time = time.time()
         query_time = end_time - start_time
-        current_time = datetime.now().replace()
-        result = (current_time.strftime('%Y-%m-%d %H:%M:%S'), file_name, query_time)
+        current_time = time.strftime('%d-%m-%Y %H:%M:%S')
+        result = (current_time, file_name, query_time)
         result_list.append(result)
 
     print(result_list)
@@ -61,10 +69,10 @@ def run_benchmark():
 
 
 def run_benchmark_save_results():
-    cursor.execute('''CREATE TABLE IF NOT EXISTS tpch_results  
+    table_name = "tpch_results"
+    cursor.execute(f'''CREATE TABLE IF NOT EXISTS {table_name}  
              (run_datetime TIMESTAMP, tpch_query_name TEXT, benchmark_result NUMERIC)''')
 
-    table_name = "tpch_results"
     result_list = run_benchmark()
     for result in result_list:
         run_datetime = result[0]
@@ -90,9 +98,17 @@ def close_connection():
 
 
 if __name__ == "__main__":
+    function_map = {
+        'create_schema': create_schema,
+        'load_data': load_data,
+        'run_benchmark': run_benchmark,
+        'run_benchmark__save_results': run_benchmark_save_results,
+        'fetch_results': fetch_results
+    }
+
     parser = argparse.ArgumentParser(description='Runs TPCH benchmark queries')
-    parser.add_argument('--create_schema', action='store_true', help='Create database schema')
-    parser.add_argument('--load_data', action='store_true', help='Load data into tables')
+    parser.add_argument('--create_schema', action='store_true', help='create database schema')
+    parser.add_argument('--load_data', action='store_true', help='load data into tables')
     parser.add_argument('--run-benchmark', action='store_true', help='run benchmark')
     parser.add_argument('--run-benchmark--save-results', action='store_true', help='run benchmark and save results')
     parser.add_argument('--fetch-results', action='store_true', help='fetch results and print')
@@ -101,24 +117,9 @@ if __name__ == "__main__":
 
     cursor, conn = open_connection()
 
-    if args.create_schema:
-        create_schema()
-        print('database schema created successfully')
-
-    if args.load_data:
-        load_data()
-        print('data loaded successfully')
-
-    if args.run_benchmark:
-        run_benchmark()
-        print("run benchmark successfully")
-
-    if args.run_benchmark__save_results:
-        run_benchmark_save_results()
-        print("run benchmark and save result successfully")
-
-    if args.fetch_results:
-        fetch_results()
-        print("fetch and print results successfully")
+    for arg, value in args.__dict__.items():
+        if value:
+            function = function_map[arg]
+            function()
 
     close_connection()
